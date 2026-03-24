@@ -1,7 +1,7 @@
 [project]
 name = "tradingview-mcp"
-version = "0.1.0"
-description = "Model Context Protocol server exposing crypto screener tools (TradingView Screener)"
+version = "0.2.0"
+description = "Advanced multi-agent AI trading framework and real-time market analysis MCP server"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

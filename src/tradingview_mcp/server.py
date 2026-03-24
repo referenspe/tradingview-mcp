@@ -1272,6 +1272,194 @@ def smart_volume_scanner(exchange: str = "KUCOIN", min_volume_ratio: float = 2.0
 	return filtered_results[:limit]
 
 
+def _calculate_sentiment_score(indicators: dict, price_change: float) -> dict:
+    """A basic heuristic for sentiment based on volume and price momentum."""
+    rsi = indicators.get("RSI", 50.0)
+    macd = indicators.get("MACD.macd", 0.0)
+    macd_signal = indicators.get("MACD.signal", 0.0)
+    
+    score = 0
+    signals = []
+    
+    if price_change > 0:
+        score += 1
+        signals.append("Positive price momentum")
+    elif price_change < 0:
+        score -= 1
+        signals.append("Negative price momentum")
+        
+    if rsi > 60:
+        score += 1
+        signals.append("Bullish RSI (>60)")
+    elif rsi < 40:
+        score -= 1
+        signals.append("Bearish RSI (<40)")
+        
+    if macd is not None and macd_signal is not None:
+        if macd > macd_signal:
+            score += 1
+            signals.append("MACD bullish crossover")
+        elif macd < macd_signal:
+            score -= 1
+            signals.append("MACD bearish crossover")
+        
+    return {
+        "score": score,
+        "normalized": max(-3, min(3, score)),
+        "signals": signals
+    }
+
+def _calculate_risk_score(indicators: dict, bbw: float) -> dict:
+    """Risk assessment based on volatility and moving averages."""
+    close = indicators.get("close", 0.0)
+    sma20 = indicators.get("SMA20", close)
+    ema200 = indicators.get("EMA200", close)
+    
+    score = 0
+    warnings = []
+    
+    if bbw > 0.1:
+        score -= 2
+        warnings.append("High volatility (Wide BBW > 0.1)")
+    elif bbw < 0.03:
+        score += 1
+        warnings.append("Low volatility (Squeeze)")
+        
+    if ema200 is not None and close < ema200:
+        score -= 1
+        warnings.append("Price below 200 EMA (Long-term bearish structure)")
+    
+    # Distance from SMA20 (reversion risk)
+    if sma20 and sma20 > 0:
+        dist = abs(close - sma20) / sma20
+        if dist > 0.05:
+            score -= 1
+            direction = "above" if close > sma20 else "below"
+            warnings.append(f"Extended from 20 SMA (5%+ {direction} mean)")
+            
+    return {
+        "score": score,
+        "warnings": warnings if warnings else ["Normal risk parameters"],
+        "level": "High" if score < -1 else "Medium" if score == -1 else "Low"
+    }
+
+
+@mcp.tool()
+def multi_agent_analysis(
+    symbol: str,
+    exchange: str = "KUCOIN",
+    timeframe: str = "15m"
+) -> dict:
+    """Run a multi-agent debate (Technical, Sentiment, Risk) for a specific symbol.
+    
+    Args:
+        symbol: Coin symbol (e.g., "BTCUSDT")
+        exchange: Exchange name (BINANCE, KUCOIN, etc.) 
+        timeframe: Time interval (5m, 15m, 1h, 4h, 1D, 1W)
+    
+    Returns:
+        A structured debate between 3 AI agents culminating in a final trading decision.
+    """
+    try:
+        exchange_sanitized = sanitize_exchange(exchange, "KUCOIN")
+        timeframe_sanitized = sanitize_timeframe(timeframe, "15m")
+        
+        if ":" not in symbol:
+            full_symbol = f"{exchange_sanitized.upper()}:{symbol.upper()}"
+        else:
+            full_symbol = symbol.upper()
+            
+        screener = EXCHANGE_SCREENER.get(exchange_sanitized, "crypto")
+        
+        analysis = get_multiple_analysis(
+            screener=screener,
+            interval=timeframe_sanitized,
+            symbols=[full_symbol]
+        )
+        
+        if full_symbol not in analysis or analysis[full_symbol] is None:
+             return {"error": f"No data found for {full_symbol}"}
+             
+        indicators = analysis[full_symbol].indicators
+        metrics = compute_metrics(indicators)
+        if not metrics:
+             return {"error": f"Could not compute metrics for {full_symbol}"}
+        
+        price = metrics.get('price', 0.0)
+        change = metrics.get('change', 0.0)
+        bb_rating = metrics.get('rating', 0)
+        bbw = metrics.get('bbw', 0.0)
+        
+        # --- AGENT 1: TECHNICAL ANALYST ---
+        tech_analyst = {
+            "role": "Technical Analyst",
+            "stance": "Bullish" if bb_rating > 0 else "Bearish" if bb_rating < 0 else "Neutral",
+            "score": bb_rating, # -3 to +3
+            "key_observations": [
+                f"Price is {price} ({change:+.2f}%)",
+                f"Bollinger Rating: {bb_rating} ({metrics.get('signal', 'Neutral')})",
+                f"RSI: {indicators.get('RSI', 50):.1f}"
+            ]
+        }
+        
+        # --- AGENT 2: SENTIMENT ANALYST ---
+        sentiment_data = _calculate_sentiment_score(indicators, change)
+        sentiment_analyst = {
+            "role": "Sentiment & Momentum Analyst",
+            "stance": "Bullish" if sentiment_data["normalized"] > 0 else "Bearish" if sentiment_data["normalized"] < 0 else "Neutral",
+            "score": sentiment_data["normalized"],
+            "key_observations": sentiment_data["signals"]
+        }
+        
+        # --- AGENT 3: RISK MANAGER ---
+        risk_data = _calculate_risk_score(indicators, bbw)
+        risk_manager = {
+            "role": "Risk Manager",
+            "risk_level": risk_data["level"],
+            "risk_score": risk_data["score"],
+            "warnings": risk_data["warnings"]
+        }
+        
+        # --- THE DEBATE & FINAL DECISION ---
+        total_score = tech_analyst["score"] + sentiment_analyst["score"] + risk_manager["risk_score"]
+        
+        if total_score >= 3 and risk_manager["risk_level"] != "High":
+            final_decision = "STRONG BUY"
+            confidence = "High"
+        elif total_score > 0:
+            final_decision = "BUY"
+            confidence = "Medium"
+        elif total_score <= -3:
+            final_decision = "STRONG SELL"
+            confidence = "High"
+        elif total_score < 0:
+            final_decision = "SELL"
+            confidence = "Medium"
+        else:
+            final_decision = "HOLD"
+            confidence = "Low"
+            
+        return {
+            "framework_name": "TradingAgents-MCP Pipeline",
+            "target": full_symbol,
+            "timeframe": timeframe_sanitized,
+            "agents_debate": {
+                "technical_analyst": tech_analyst,
+                "sentiment_analyst": sentiment_analyst,
+                "risk_manager": risk_manager
+            },
+            "consensus": {
+                "decision": final_decision,
+                "confidence": confidence,
+                "net_score": total_score,
+                "summary": f"Technical score: {tech_analyst['score']}, Sentiment score: {sentiment_analyst['score']}, Risk adjustment: {risk_manager['risk_score']}"
+            }
+        }
+        
+    except Exception as e:
+        return {"error": f"Multi-agent analysis failed: {str(e)}"}
+
+
 if __name__ == "__main__":
 	main()
 
