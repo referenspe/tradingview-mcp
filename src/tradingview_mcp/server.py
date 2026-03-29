@@ -2969,25 +2969,32 @@ def backtest_strategy(
     strategy: str,
     period: str = "1y",
     initial_capital: float = 10000.0,
+    commission_pct: float = 0.1,
+    slippage_pct: float = 0.05,
 ) -> dict:
-    """Backtest a trading strategy on historical daily data and get performance metrics.
+    """Backtest a trading strategy on historical daily data with institutional-grade metrics.
 
     Args:
-        symbol:          Yahoo Finance symbol — stocks (AAPL, TSLA), crypto (BTC-USD, ETH-USD),
-                         ETFs (SPY, QQQ), indices (^GSPC)
+        symbol:          Yahoo Finance symbol — stocks (AAPL, TSLA, NVDA), crypto (BTC-USD, ETH-USD),
+                         ETFs (SPY, QQQ), indices (^GSPC, ^IXIC), Turkish (THYAO.IS)
         strategy:        Trading strategy to test:
-                           'rsi'       — Buy oversold (RSI<30), Sell overbought (RSI>70)
-                           'bollinger' — Buy at lower Bollinger Band, Sell at middle band
-                           'macd'      — Buy on MACD golden cross, Sell on death cross
-                           'ema_cross' — Buy EMA20>EMA50 crossover, Sell on reversal
+                           'rsi'        — Buy oversold (RSI<30), Sell overbought (RSI>70)
+                           'bollinger'  — Buy at lower Bollinger Band, Sell at middle band
+                           'macd'       — Buy on MACD golden cross, Sell on death cross
+                           'ema_cross'  — Buy EMA20>EMA50 crossover, Sell on reversal
+                           'supertrend' — Buy on bullish Supertrend flip (🔥 trending 2025)
+                           'donchian'   — Buy Donchian Channel breakout (Turtle Trader style)
         period:          Historical data period: '1mo', '3mo', '6mo', '1y', '2y'
         initial_capital: Starting capital in USD (default: $10,000)
+        commission_pct:  Per-trade commission % (default: 0.1% — typical broker fee)
+        slippage_pct:    Per-trade slippage % (default: 0.05%)
 
     Returns:
-        Full backtest report: win rate, total return, max drawdown, profit factor,
-        best/worst trade, trade log, vs buy-and-hold benchmark.
+        Institutional-grade backtest report: win rate, total return, Sharpe ratio,
+        Calmar ratio, max drawdown, profit factor, expectancy, best/worst trade,
+        vs buy-and-hold benchmark. Includes transaction cost simulation.
     """
-    return run_backtest(symbol, strategy, period, initial_capital)
+    return run_backtest(symbol, strategy, period, initial_capital, commission_pct, slippage_pct)
 
 
 @mcp.tool()
