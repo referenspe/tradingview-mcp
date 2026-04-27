@@ -1,39 +1,69 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
-name = "tradingview-mcp-server"
-version = "0.7.1"
-description = "Advanced AI Trading Intelligence Framework — MCP server with walk-forward backtesting, trade logs, equity curves, 1h timeframe, sentiment, Yahoo Finance, and 30+ technical analysis tools"
+name = "tradingview-mcp"
+version = "0.1.0"
+description = "MCP server for TradingView data — fetch quotes, technicals, and market analysis"
 readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.10"
 authors = [
-  { name = "Atila Ahmettaner" }
+    { name = "atilaahmettaner", email = "" },
 ]
-urls = { Repository = "https://github.com/atilaahmettaner/tradingview-mcp" }
-keywords = ["mcp", "tradingview", "crypto", "technical analysis", "screener", "backtesting", "walk-forward", "sentiment", "yahoo-finance", "trading", "agents", "algorithmic-trading", "equity-curve"]
+keywords = ["mcp", "tradingview", "trading", "finance", "market-data", "claude"]
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-  "feedparser>=6.0.12",
-  "mcp[cli]>=1.12.0",
-  "tradingview-screener>=0.6.4",
-  "tradingview-ta>=3.3.0",
+    "mcp>=1.0.0",
+    "tradingview-ta>=3.3.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
 ]
 
 [project.scripts]
-# Entry point now points to packaged module
 tradingview-mcp = "tradingview_mcp.server:main"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[project.urls]
+Homepage = "https://github.com/atilaahmettaner/tradingview-mcp"
+Repository = "https://github.com/atilaahmettaner/tradingview-mcp"
+Issues = "https://github.com/atilaahmettaner/tradingview-mcp/issues"
 
-[tool.setuptools.package-data]
-tradingview_mcp = ["coinlist/*.txt"]
+[tool.hatch.build.targets.wheel]
+packages = ["tradingview_mcp"]
 
-[tool.uv]
-dev-dependencies = []
-package = true
+[tool.ruff]
+line-length = 100
+target-version = "py310"
 
-[build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
